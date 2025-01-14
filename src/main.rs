@@ -28,26 +28,26 @@ fn main() {
     let mut right_paddle = Paddle { width: HEIGHT - 40.0, height: WIDTH / 2.0 - 50.0 };
     let mut ball = Ball { width: HEIGHT / 2.0, height: WIDTH / 2.0, dx: 0.8, dy: 0.8};
 
-    let mut keheights_held = HashSet::new(); 
+    let mut keys_held = HashSet::new(); 
 
     while let Some(e) = window.next() {
-        if let Some(Button::Keyboard(keheight)) = e.press_args() {
-            keheights_held.insert(keheight);
+        if let Some(Button::Keyboard(key)) = e.press_args() {
+            keys_held.insert(key);
         }
-        if let Some(Button::Keyboard(keheight)) = e.release_args() {
-            keheights_held.remove(&keheight);
+        if let Some(Button::Keyboard(key)) = e.release_args() {
+            keys_held.remove(&key);
         }
 
-        if keheights_held.contains(&Key::W) && left_paddle.height > 0.0 {
+        if keys_held.contains(&Key::W) && left_paddle.height > 0.0 {
             left_paddle.height -= 2.0;
         }
-        if keheights_held.contains(&Key::S) && left_paddle.height < WIDTH - 100.0 {
+        if keys_held.contains(&Key::S) && left_paddle.height < WIDTH - 100.0 {
             left_paddle.height += 2.0;
         }
-        if keheights_held.contains(&Key::Up) && right_paddle.height > 0.0 {
+        if keys_held.contains(&Key::Up) && right_paddle.height > 0.0 {
             right_paddle.height -= 2.0;
         }
-        if keheights_held.contains(&Key::Down) && right_paddle.height < WIDTH - 100.0 {
+        if keys_held.contains(&Key::Down) && right_paddle.height < WIDTH - 100.0 {
             right_paddle.height += 2.0;
         }
 
