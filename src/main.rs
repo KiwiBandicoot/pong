@@ -27,10 +27,19 @@ fn main() {
     let mut left_paddle = Paddle { width: 30.0, height: WIDTH / 2.0 - 50.0 };
     let mut right_paddle = Paddle { width: HEIGHT - 40.0, height: WIDTH / 2.0 - 50.0 };
     let mut ball = Ball { width: HEIGHT / 2.0, height: WIDTH / 2.0, dx: 0.8, dy: 0.8};
-
+ 
     let mut keys_held = HashSet::new(); 
 
     while let Some(e) = window.next() {
+        if let Some(Button::Keyboard(Key::Space)) = e.press_args() {
+            println!("Game Paused");
+            while let Some(e) = window.next() {
+                if let Some(Button::Keyboard(Key::Space)) = e.press_args() {
+                    println!("Game Resumed");
+                    break;
+                }
+            }
+        }
         if let Some(Button::Keyboard(key)) = e.press_args() {
             keys_held.insert(key);
         }
@@ -80,6 +89,7 @@ fn main() {
             ball.width = HEIGHT / 2.0;
             ball.height = WIDTH / 2.0;
             ball.dx = -ball.dx;
+            ball.dy = -ball.dy;
         }
 
         //Drawing paddles and ball
@@ -87,14 +97,17 @@ fn main() {
             clear([0.0, 0.0, 0.0, 1.0], g);
 
             rectangle(
-                [1.0, 0.0, 0.0, 1.0], // red color for left paddle
+                [0.0, 1.0, 0.0, 1.0], // right color for right paddle
+                //[1.0, 0.0, 0.0, 1.0], // red color for left paddle
                 [left_paddle.width, left_paddle.height, 10.0, 100.0],
                 c.transform,
                 g,
             );
 
             rectangle(
-                [0.0, 0.0, 1.0, 1.0], // blue color for right paddle
+
+                [0.0, 1.0, 0.0, 1.0], // green color for right paddle
+                //[0.0, 0.0, 1.0, 1.0], // blue color for right paddle
                 [right_paddle.width, right_paddle.height, 10.0, 100.0],
                 c.transform,
                 g,
