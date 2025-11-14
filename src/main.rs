@@ -97,8 +97,7 @@ fn main() {
             clear([0.0, 0.0, 0.0, 1.0], g);
 
             rectangle(
-                [0.0, 1.0, 0.0, 1.0], // right color for right paddle
-                //[1.0, 0.0, 0.0, 1.0], // red color for left paddle
+                [0.0, 0.0, 1.0, 1.0], // blue color for left paddle
                 [left_paddle.width, left_paddle.height, 10.0, 100.0],
                 c.transform,
                 g,
@@ -106,8 +105,7 @@ fn main() {
 
             rectangle(
 
-                [0.0, 1.0, 0.0, 1.0], // green color for right paddle
-                //[0.0, 0.0, 1.0, 1.0], // blue color for right paddle
+                [1.0, 0.0, 0.0, 1.0], // red color for right paddle
                 [right_paddle.width, right_paddle.height, 10.0, 100.0],
                 c.transform,
                 g,
