@@ -1,3 +1,5 @@
-Made a Pong game with Piston Window to experiment with rust.
+Made a Pong game
+
+Now remade with Bevy
 
 WASD for player 1 and Arrow Keys for player 2!
