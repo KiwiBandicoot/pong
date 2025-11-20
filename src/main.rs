@@ -62,21 +62,18 @@ impl Player {
 }
 
 fn spawn_border(mut commands: Commands) {
-    // Top border
     commands.spawn((
         Transform::from_translation(Vec3::new(0., WINDOW_HEIGHT / 2., 0.)),
         RigidBody::Fixed,
         Collider::cuboid(WINDOW_WIDTH / 2., 3.)
     ));
     
-    // Bottom border
     commands.spawn((
         Transform::from_translation(Vec3::new(0., -WINDOW_HEIGHT / 2., 0.)),
         RigidBody::Fixed,
         Collider::cuboid(WINDOW_WIDTH / 2., 3.)
     ));
     
-    // Right border (Player 1 goal)
     commands.spawn((
         Transform::from_translation(Vec3::new(WINDOW_WIDTH / 2., 0., 0.)),
         RigidBody::Fixed,
@@ -85,7 +82,6 @@ fn spawn_border(mut commands: Commands) {
         Sensor,
     ));
     
-    // Left border (Player 2 goal)
     commands.spawn((
         Transform::from_translation(Vec3::new(-WINDOW_WIDTH / 2., 0., 0.)),
         RigidBody::Fixed,
