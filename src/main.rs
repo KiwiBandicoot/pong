@@ -48,8 +48,8 @@ enum Player {
 impl Player {
     fn start_speed(&self) -> Velocity {
     match self {
-        Player::Player1 => Velocity::linear(Vect::new(200., 0.)),
-        Player::Player2 => Velocity::linear(Vect::new(-200., 0.)),
+        Player::Player1 => Velocity::linear(Vect::new(800., 0.)),
+        Player::Player2 => Velocity::linear(Vect::new(-800., 0.)),
     }
 }
     fn get_color(&self) -> Color {
@@ -153,8 +153,8 @@ fn spawn_ball(
     mut commands: Commands,
 ) {
     let mut rng = rand::thread_rng();
-    let vx = if rng.gen_bool(0.5) { 200. } else { -200. };
-    let vy = rng.gen_range(-100.0..100.0); 
+    let vx = if rng.gen_bool(0.5) { 800. } else { -800. };
+    let vy = rng.gen_range(-400.0..400.0); 
 
     commands.spawn((
         Sprite {
