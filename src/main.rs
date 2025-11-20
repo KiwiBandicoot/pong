@@ -2,8 +2,8 @@ use bevy::{color::palettes::css::{BLUE, RED}, prelude::*, window::WindowResoluti
 use rand::Rng;
 use bevy_rapier2d::prelude::*;
 
-const WINDOW_WIDTH: f32 = 1280.;
-const WINDOW_HEIGHT: f32 = 720.;
+const WINDOW_WIDTH: f32 = 960.;
+const WINDOW_HEIGHT: f32 = 540.;
 const BALL_RADIUS: f32 = 25.;
 
 fn main() {
@@ -47,12 +47,11 @@ enum Player {
 
 impl Player {
     fn start_speed(&self) -> Velocity {
-        match self {
-            Player::Player1 => Velocity::linear(Vect::new(100., 0.)),
-            Player::Player2 => Velocity::linear(Vect::new(-100., 0.)),
-        }
+    match self {
+        Player::Player1 => Velocity::linear(Vect::new(200., 0.)),
+        Player::Player2 => Velocity::linear(Vect::new(-200., 0.)),
     }
-
+}
     fn get_color(&self) -> Color {
         match self {
             Player::Player1 => RED.into(),
@@ -154,8 +153,8 @@ fn spawn_ball(
     mut commands: Commands,
 ) {
     let mut rng = rand::thread_rng();
-    let vx = if rng.gen_bool(0.5) { 100. } else { -100. };
-    let vy = rng.gen_range(-50.0..50.0);
+    let vx = if rng.gen_bool(0.5) { 200. } else { -200. };
+    let vy = rng.gen_range(-100.0..100.0); 
 
     commands.spawn((
         Sprite {
