@@ -1,10 +1,6 @@
-use bevy::{color::palettes::css::{DARK_GRAY, BLUE, RED}, prelude::*, window::WindowResolution};
+use bevy::{color::palettes::css::{BLUE, RED}, prelude::*, window::WindowResolution};
 use rand::Rng;
 use bevy_rapier2d::prelude::*;
-use std::collections::HashMap;
-
-#[derive(Resource, Default)]
-struct Score(HashMap<Player, u32>);
 
 const WINDOW_WIDTH: f32 = 1280.;
 const WINDOW_HEIGHT: f32 = 720.;
@@ -22,15 +18,14 @@ fn main() {
         ..Default::default()
     }));
 
-    app.init_resource::<Score>();
     app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default().with_default_system_setup(true));
     app.add_event::<GameEvents>();
-    app.add_systems(Startup, (spawn_score, spawn_camera, spawn_players));
+    app.add_systems(Startup, (spawn_camera, spawn_players));
     app.add_systems(Startup, (spawn_ball, spawn_border));
     app.add_systems(Update, move_paddle);
     app.add_systems(Update, detect_reset);
     app.add_systems(Update, ball_hit);
-    app.add_systems(PostUpdate, (reset_ball, score));
+    app.add_systems(PostUpdate, reset_ball);
     app.run();
 }
 
@@ -44,7 +39,7 @@ struct Paddle {
     move_down: KeyCode
 }
 
-#[derive(Component, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
 enum Player {
     Player1,
     Player2,
@@ -187,19 +182,22 @@ fn spawn_ball(
 
 
 fn ball_hit(
+    mut collision_events: EventReader<CollisionEvent>,
     paddles: Query<&Player, With<Paddle>>,
-    mut balls: Query<(&CollidingEntities, &mut Sprite), With<Ball>>
+    mut balls: Query<&mut Sprite, With<Ball>>,
 ) {
-    for (hits, mut sprite) in &mut balls {
-        for hit in hits.iter() {
-            if let Ok(player) = paddles.get(hit) {
-                sprite.color = player.get_color();
-                return;
+    for event in collision_events.read() {
+        if let CollisionEvent::Started(e1, e2, _) = event {
+            for (ball_entity, paddle_entity) in [(e1, e2), (e2, e1)] {
+                if let Ok(player) = paddles.get(*paddle_entity) {
+                    if let Ok(mut sprite) = balls.get_mut(*ball_entity) {
+                        sprite.color = player.get_color();
+                    }
+                }
             }
         }
     }
 }
-
 fn detect_reset(
     input: Res<ButtonInput<KeyCode>>,
     balls: Query<&CollidingEntities, With<Ball>>,
@@ -219,7 +217,7 @@ fn detect_reset(
         for hit in ball.iter() {
             if let Ok(player) = goals.get(hit) {
                 game_events.write(GameEvents::ResetBall(*player));
-                game_events.write(GameEvents::GainPoint(*player));
+                return;
             }
         }
     }
@@ -227,8 +225,7 @@ fn detect_reset(
 
 #[derive(Event)]
 enum GameEvents {
-    ResetBall(Player),
-    GainPoint(Player),
+    ResetBall(Player)
 }
 
 fn reset_ball(
@@ -242,61 +239,7 @@ fn reset_ball(
                     transform.translation = Vec3::new(0., 0., 1.);
                     *velocity = player.start_speed();
                 }
-            },
-            _ => {}
-        }
-    }
-}
-
-fn spawn_score(
-    mut commands: Commands,
-) {
-    commands.spawn((Node {
-        position_type: PositionType::Absolute,
-        margin: UiRect::horizontal(Val::Auto),
-        top: Val::ZERO,
-        padding: UiRect::horizontal(Val::Px(20.)),
-        display: Display::Grid,
-        grid_template_columns: vec![GridTrack::flex(1.), GridTrack::auto(), GridTrack::flex(1.)],
-        ..Default::default()
-    }, BackgroundColor(DARK_GRAY.into()))).with_children(|p| {
-
-        p.spawn((Text::new("0"), TextFont {
-            font_size: 100.,
-            ..Default::default()
-        }, TextLayout::new_with_justify(JustifyText::Center),
-        Player::Player1));
-
-        p.spawn((Text::new("|"), TextFont {
-            font_size: 100.,
-            ..Default::default()
-        }));
-
-        p.spawn((Text::new("0"), TextFont {
-            font_size: 100.,
-            ..Default::default()
-        }, TextLayout::new_with_justify(JustifyText::Center),
-        Player::Player2));
-    });
-}
-
-fn score(
-    mut events: EventReader<GameEvents>,
-    mut score_text: Query<(&mut Text, &Player)>,
-    mut score: ResMut<Score>,
-) {
-    for event in events.read() {
-        match event {
-            GameEvents::GainPoint(player) => {
-                *score.0.entry(*player).or_default() += 1;
-                let score = score.0.get(player).cloned().unwrap_or(0);
-                for (mut text, owner) in &mut score_text {
-                    if owner != player {continue;}
-                    **text = score.to_string();
-                    break;
-                }
-            },
-            GameEvents::ResetBall(_) => {}
+            }
         }
     }
 }
