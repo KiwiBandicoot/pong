@@ -1,3 +1,3 @@
 Made a bare bones Pong game with Bevy
 
-WASD for player 1 and Arrow Keys for player 2!
+W/S keys for player 1 and up/down Keys for player 2!
