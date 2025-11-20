@@ -1,32 +1,61 @@
-use bevy::{color::palettes::css::{BLUE, RED}, prelude::*, window::WindowResolution};
-use rand::Rng;
+use bevy::prelude::*;
+use bevy::color::palettes::basic::{RED, BLUE};
+use bevy::window::WindowResolution;
 use bevy_rapier2d::prelude::*;
+use rand::Rng;
+mod menu;
+use menu::{MenuState, spawn_main_menu, cleanup_menu, menu_button_system};
 
-const WINDOW_WIDTH: f32 = 960.;
-const WINDOW_HEIGHT: f32 = 540.;
-const BALL_RADIUS: f32 = 25.;
+const WINDOW_WIDTH: f32 = 800.;
+const WINDOW_HEIGHT: f32 = 600.;
+const BALL_RADIUS: f32 = 10.;
+
+#[derive(Component)]
+struct MenuCamera;
 
 fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins
-    .set(WindowPlugin {
-        primary_window: Some(Window {
-            resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-            resizable: false,
+    App::new()
+        // Plugins
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+                resizable: false,
+                ..Default::default()
+            }),
             ..Default::default()
-        }),
-        ..Default::default()
-    }));
+        }))
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default().with_default_system_setup(true))
+        // Events
+        .add_event::<GameEvents>()
+        .init_state::<MenuState>()
+        // Menu systems
+        .add_systems(OnEnter(MenuState::MainMenu), spawn_menu_camera)
+        .add_systems(OnEnter(MenuState::MainMenu), spawn_main_menu)
+        .add_systems(OnExit(MenuState::MainMenu), cleanup_menu)
+        .add_systems(OnExit(MenuState::MainMenu), cleanup_menu_camera)
+        // Game systems
+        .add_systems(Update, menu_button_system.run_if(in_state(MenuState::MainMenu)))
+        .add_systems(OnEnter(MenuState::InGame), spawn_camera)
+        .add_systems(OnEnter(MenuState::InGame), spawn_players)
+        .add_systems(OnEnter(MenuState::InGame), spawn_ball)
+        .add_systems(OnEnter(MenuState::InGame), spawn_border)
+        .add_systems(Update, move_paddle.run_if(in_state(MenuState::InGame)))
+        .add_systems(Update, detect_reset.run_if(in_state(MenuState::InGame)))
+        .add_systems(Update, ball_hit.run_if(in_state(MenuState::InGame)))
+        .add_systems(PostUpdate, reset_ball.run_if(in_state(MenuState::InGame)))
+        .run();
+}
 
-    app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default().with_default_system_setup(true));
-    app.add_event::<GameEvents>();
-    app.add_systems(Startup, (spawn_camera, spawn_players));
-    app.add_systems(Startup, (spawn_ball, spawn_border));
-    app.add_systems(Update, move_paddle);
-    app.add_systems(Update, detect_reset);
-    app.add_systems(Update, ball_hit);
-    app.add_systems(PostUpdate, reset_ball);
-    app.run();
+// Spawn a camera for the menu UI
+fn spawn_menu_camera(mut commands: Commands) {
+    commands.spawn(Camera2d::default()).insert(MenuCamera);
+}
+
+// Despawn menu camera when leaving menu
+fn cleanup_menu_camera(mut commands: Commands, query: Query<Entity, With<MenuCamera>>) {
+    for entity in &query {
+        commands.entity(entity).despawn();
+    }
 }
 
 fn spawn_camera(mut commands: Commands) {
@@ -148,6 +177,7 @@ fn move_paddle(
 
 #[derive(Component)]
 struct Ball;
+
 
 fn spawn_ball(
     mut commands: Commands,
