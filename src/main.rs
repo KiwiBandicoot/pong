@@ -4,6 +4,7 @@ use bevy::window::WindowResolution;
 use bevy_rapier2d::prelude::*;
 use rand::Rng;
 mod menu;
+mod music;
 use menu::{MenuState, spawn_main_menu, cleanup_menu, menu_button_system};
 
 const WINDOW_WIDTH: f32 = 800.;
@@ -16,6 +17,7 @@ struct MenuCamera;
 fn main() {
     App::new()
         // Plugins
+        
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
@@ -31,8 +33,13 @@ fn main() {
         // Menu systems
         .add_systems(OnEnter(MenuState::MainMenu), spawn_menu_camera)
         .add_systems(OnEnter(MenuState::MainMenu), spawn_main_menu)
+
         .add_systems(OnExit(MenuState::MainMenu), cleanup_menu)
         .add_systems(OnExit(MenuState::MainMenu), cleanup_menu_camera)
+
+        // Music system
+        .add_systems(Startup, music::play_menu_music)
+
         // Game systems
         .add_systems(Update, menu_button_system.run_if(in_state(MenuState::MainMenu)))
         .add_systems(OnEnter(MenuState::InGame), spawn_camera)
