@@ -16,8 +16,8 @@ struct MenuCamera;
 
 fn main() {
     App::new()
-        // Plugins
         
+        // Plugins
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
@@ -27,13 +27,14 @@ fn main() {
             ..Default::default()
         }))
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default().with_default_system_setup(true))
+        
         // Events
         .add_event::<GameEvents>()
         .init_state::<MenuState>()
+        
         // Menu systems
         .add_systems(OnEnter(MenuState::MainMenu), spawn_menu_camera)
         .add_systems(OnEnter(MenuState::MainMenu), spawn_main_menu)
-
         .add_systems(OnExit(MenuState::MainMenu), cleanup_menu)
         .add_systems(OnExit(MenuState::MainMenu), cleanup_menu_camera)
 
@@ -53,12 +54,10 @@ fn main() {
         .run();
 }
 
-// Spawn a camera for the menu UI
 fn spawn_menu_camera(mut commands: Commands) {
     commands.spawn(Camera2d::default()).insert(MenuCamera);
 }
 
-// Despawn menu camera when leaving menu
 fn cleanup_menu_camera(mut commands: Commands, query: Query<Entity, With<MenuCamera>>) {
     for entity in &query {
         commands.entity(entity).despawn();
