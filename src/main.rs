@@ -1,11 +1,13 @@
 use bevy::prelude::*;
+use bevy::sprite::MeshMaterial2d;
+use bevy::render::mesh::Mesh;
 use bevy::color::palettes::basic::{RED, BLUE};
 use bevy::window::WindowResolution;
 use bevy_rapier2d::prelude::*;
 use rand::Rng;
 mod menu;
 mod music;
-use menu::{MenuState, spawn_main_menu, cleanup_menu, menu_button_system};
+use menu::{MenuState, spawn_main_menu, cleanup_menu};
 
 const WINDOW_WIDTH: f32 = 800.;
 const WINDOW_HEIGHT: f32 = 600.;
@@ -42,7 +44,7 @@ fn main() {
         .add_systems(Startup, music::play_menu_music)
 
         // Game systems
-        .add_systems(Update, menu_button_system.run_if(in_state(MenuState::MainMenu)))
+        .add_systems(Update, menu::menu_button_system.run_if(in_state(MenuState::MainMenu)))
         .add_systems(OnEnter(MenuState::InGame), spawn_camera)
         .add_systems(OnEnter(MenuState::InGame), spawn_players)
         .add_systems(OnEnter(MenuState::InGame), spawn_ball)
@@ -187,17 +189,16 @@ struct Ball;
 
 fn spawn_ball(
     mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let mut rng = rand::thread_rng();
     let vx = if rng.gen_bool(0.5) { 800. } else { -800. };
-    let vy = rng.gen_range(-400.0..400.0); 
+    let vy = rng.gen_range(-400.0..400.0);
 
     commands.spawn((
-        Sprite {
-            color: Color::WHITE,
-            custom_size: Some(Vec2::new(BALL_RADIUS * 2., BALL_RADIUS * 2.)),
-            ..Default::default()
-        },
+        Mesh2d(meshes.add(Circle::new(BALL_RADIUS))),
+        MeshMaterial2d(materials.add(ColorMaterial::from(Color::WHITE))),
         Transform::from_translation(Vec3::new(0., 0., 1.)),
         Ball,
         RigidBody::Dynamic,
@@ -215,20 +216,24 @@ fn spawn_ball(
 fn ball_hit(
     mut collision_events: EventReader<CollisionEvent>,
     paddles: Query<&Player, With<Paddle>>,
-    mut balls: Query<&mut Sprite, With<Ball>>,
+    balls: Query<&MeshMaterial2d<ColorMaterial>, With<Ball>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
             for (ball_entity, paddle_entity) in [(e1, e2), (e2, e1)] {
-                if let Ok(player) = paddles.get(*paddle_entity) {
-                    if let Ok(mut sprite) = balls.get_mut(*ball_entity) {
-                        sprite.color = player.get_color();
+                if let (Ok(player), Ok(material_handle)) =
+                    (paddles.get(*paddle_entity), balls.get(*ball_entity))
+                {
+                    if let Some(material) = materials.get_mut(material_handle) {
+                        material.color = player.get_color();
                     }
                 }
             }
         }
     }
 }
+
 fn detect_reset(
     input: Res<ButtonInput<KeyCode>>,
     balls: Query<&CollidingEntities, With<Ball>>,
