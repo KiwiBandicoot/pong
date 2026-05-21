@@ -2,7 +2,7 @@
 const WIN_SCORE: u32 = 5;
 
 #[derive(Resource, Default)]
-struct Score {
+pub struct Score {
     player1: u32,
     player2: u32,
 }
@@ -18,8 +18,10 @@ use bevy::window::WindowResolution;
 use bevy_rapier2d::prelude::*;
 use rand::Rng;
 mod menu;
+mod game_over;
 mod music;
-use menu::{MenuState, spawn_main_menu, cleanup_menu};
+use menu::{MenuState, spawn_main_menu, cleanup_menu, Winner};
+use game_over::{spawn_game_over_menu, cleanup_game_over_menu, game_over_button_system};
 
 const WINDOW_WIDTH: f32 = 800.;
 const WINDOW_HEIGHT: f32 = 600.;
@@ -27,6 +29,9 @@ const BALL_RADIUS: f32 = 10.;
 
 #[derive(Component)]
 struct MenuCamera;
+
+#[derive(Component)]
+struct GameEntity;
 
 fn main() {
     App::new()
@@ -41,6 +46,7 @@ fn main() {
             ..Default::default()
         }))
         .insert_resource(Score::default())
+        .insert_resource(Winner::default())
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default().with_default_system_setup(true))
         
         // Events
@@ -51,15 +57,22 @@ fn main() {
         .add_systems(OnEnter(MenuState::MainMenu), spawn_menu_camera)
         .add_systems(OnEnter(MenuState::MainMenu), spawn_main_menu)
         .add_systems(OnExit(MenuState::MainMenu), cleanup_menu)
+        .add_systems(OnEnter(MenuState::GameOver), spawn_menu_camera)
+        .add_systems(OnEnter(MenuState::GameOver), spawn_game_over_menu)
+        .add_systems(OnExit(MenuState::GameOver), cleanup_game_over_menu)
+        .add_systems(OnExit(MenuState::GameOver), cleanup_menu_camera)
         .add_systems(Update, ball_hit_and_score.run_if(in_state(MenuState::InGame)))
         .add_systems(OnEnter(MenuState::InGame), spawn_score_text)
-        .add_systems(OnExit(MenuState::InGame), cleanup_score_text)
+        .add_systems(OnEnter(MenuState::InGame), reset_score)
+        .add_systems(OnEnter(MenuState::InGame), clear_winner)
+        .add_systems(OnExit(MenuState::InGame), cleanup_game_entities)
         .add_systems(Update, update_score_text.run_if(in_state(MenuState::InGame)))
         // Music system
         .add_systems(Startup, music::play_menu_music)
 
         // Game systems
         .add_systems(Update, menu::menu_button_system.run_if(in_state(MenuState::MainMenu)))
+        .add_systems(Update, game_over_button_system.run_if(in_state(MenuState::GameOver)))
         .add_systems(OnEnter(MenuState::InGame), spawn_camera)
         .add_systems(OnEnter(MenuState::InGame), spawn_players)
         .add_systems(OnEnter(MenuState::InGame), spawn_ball)
@@ -72,11 +85,17 @@ fn main() {
 }
 
 fn spawn_menu_camera(mut commands: Commands) {
-    commands.spawn(Camera2d::default()).insert(MenuCamera);
+    commands.spawn((Camera2d::default(), MenuCamera));
+}
+
+fn cleanup_menu_camera(mut commands: Commands, query: Query<Entity, With<MenuCamera>>) {
+    for entity in &query {
+        commands.entity(entity).despawn();
+    }
 }
 
 fn spawn_camera(mut commands: Commands) {
-    commands.spawn(Camera2d);
+    commands.spawn((Camera2d, GameEntity));
 }
 
 #[derive(Component)]
@@ -86,7 +105,7 @@ struct Paddle {
 }
 
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
-enum Player {
+pub enum Player {
     Player1,
     Player2,
 }
@@ -110,13 +129,15 @@ fn spawn_border(mut commands: Commands) {
     commands.spawn((
         Transform::from_translation(Vec3::new(0., WINDOW_HEIGHT / 2., 0.)),
         RigidBody::Fixed,
-        Collider::cuboid(WINDOW_WIDTH / 2., 3.)
+        Collider::cuboid(WINDOW_WIDTH / 2., 3.),
+        GameEntity,
     ));
     
     commands.spawn((
         Transform::from_translation(Vec3::new(0., -WINDOW_HEIGHT / 2., 0.)),
         RigidBody::Fixed,
-        Collider::cuboid(WINDOW_WIDTH / 2., 3.)
+        Collider::cuboid(WINDOW_WIDTH / 2., 3.),
+        GameEntity,
     ));
     
     commands.spawn((
@@ -125,6 +146,7 @@ fn spawn_border(mut commands: Commands) {
         Collider::cuboid(3., WINDOW_HEIGHT / 2.),
         Player::Player1,
         Sensor,
+        GameEntity,
     ));
     
     commands.spawn((
@@ -133,6 +155,7 @@ fn spawn_border(mut commands: Commands) {
         Collider::cuboid(3., WINDOW_HEIGHT / 2.),
         Player::Player2,
         Sensor,
+        GameEntity,
     ));
 }
 
@@ -154,6 +177,7 @@ fn spawn_players(mut commands: Commands) {
     Player::Player1,
     RigidBody::KinematicPositionBased,
     Collider::cuboid(5., 75.),
+    GameEntity,
     ));
 
     commands.spawn((
@@ -170,6 +194,7 @@ fn spawn_players(mut commands: Commands) {
     Player::Player2,
     RigidBody::KinematicPositionBased,
     Collider::cuboid(5., 75.),
+    GameEntity,
     ));
 }
 
@@ -218,6 +243,7 @@ fn spawn_ball(
             combine_rule: CoefficientCombineRule::Max,
         },
         ActiveEvents::COLLISION_EVENTS,
+        GameEntity,
     ));
 }
 
@@ -231,6 +257,8 @@ fn ball_hit_and_score(
     mut score: ResMut<Score>,
     mut game_events: EventWriter<GameEvents>,
     goals: Query<&Player, With<Sensor>>,
+    mut winner: ResMut<Winner>,
+    mut next_state: ResMut<NextState<MenuState>>,
 ) {
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
@@ -258,15 +286,16 @@ fn ball_hit_and_score(
                     }
                     // Win condition
                     if score.player1 >= WIN_SCORE {
-                        println!("Player 1 wins!");
-                        score.player1 = 0;
-                        score.player2 = 0;
+                        winner.0 = Some(Player::Player1);
+                        next_state.set(MenuState::GameOver);
+                        return;
                     } else if score.player2 >= WIN_SCORE {
-                        println!("Player 2 wins!");
-                        score.player1 = 0;
-                        score.player2 = 0;
+                        winner.0 = Some(Player::Player2);
+                        next_state.set(MenuState::GameOver);
+                        return;
                     }
                     game_events.write(GameEvents::ResetBall(*player));
+                    return;
                 }
             }
         }
@@ -290,6 +319,7 @@ fn spawn_score_text(mut commands: Commands, asset_server: Res<AssetServer>, scor
             ..Default::default()
         },
         ScoreText,
+        GameEntity,
     ));
 }
 
@@ -301,10 +331,19 @@ fn update_score_text(score: Res<Score>, mut query: Query<&mut Text, With<ScoreTe
     }
 }
 
-fn cleanup_score_text(mut commands: Commands, query: Query<Entity, With<ScoreText>>) {
+fn cleanup_game_entities(mut commands: Commands, query: Query<Entity, With<GameEntity>>) {
     for entity in &query {
         commands.entity(entity).despawn();
     }
+}
+
+fn reset_score(mut score: ResMut<Score>) {
+    score.player1 = 0;
+    score.player2 = 0;
+}
+
+fn clear_winner(mut winner: ResMut<Winner>) {
+    winner.0 = None;
 }
 
 fn detect_reset(
