@@ -1,4 +1,16 @@
+// --- Scoring system ---
+const WIN_SCORE: u32 = 5;
+
+#[derive(Resource, Default)]
+struct Score {
+    player1: u32,
+    player2: u32,
+}
 use bevy::prelude::*;
+use bevy::text::{TextColor, TextFont};
+use bevy::ui::{Node, PositionType, Val};
+#[derive(Component)]
+struct ScoreText;
 use bevy::sprite::MeshMaterial2d;
 use bevy::render::mesh::Mesh;
 use bevy::color::palettes::basic::{RED, BLUE};
@@ -28,6 +40,7 @@ fn main() {
             }),
             ..Default::default()
         }))
+        .insert_resource(Score::default())
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default().with_default_system_setup(true))
         
         // Events
@@ -38,8 +51,10 @@ fn main() {
         .add_systems(OnEnter(MenuState::MainMenu), spawn_menu_camera)
         .add_systems(OnEnter(MenuState::MainMenu), spawn_main_menu)
         .add_systems(OnExit(MenuState::MainMenu), cleanup_menu)
-        .add_systems(OnExit(MenuState::MainMenu), cleanup_menu_camera)
-
+        .add_systems(Update, ball_hit_and_score.run_if(in_state(MenuState::InGame)))
+        .add_systems(OnEnter(MenuState::InGame), spawn_score_text)
+        .add_systems(OnExit(MenuState::InGame), cleanup_score_text)
+        .add_systems(Update, update_score_text.run_if(in_state(MenuState::InGame)))
         // Music system
         .add_systems(Startup, music::play_menu_music)
 
@@ -51,19 +66,13 @@ fn main() {
         .add_systems(OnEnter(MenuState::InGame), spawn_border)
         .add_systems(Update, move_paddle.run_if(in_state(MenuState::InGame)))
         .add_systems(Update, detect_reset.run_if(in_state(MenuState::InGame)))
-        .add_systems(Update, ball_hit.run_if(in_state(MenuState::InGame)))
+        // .add_systems(Update, ball_hit.run_if(in_state(MenuState::InGame)))
         .add_systems(PostUpdate, reset_ball.run_if(in_state(MenuState::InGame)))
         .run();
 }
 
 fn spawn_menu_camera(mut commands: Commands) {
     commands.spawn(Camera2d::default()).insert(MenuCamera);
-}
-
-fn cleanup_menu_camera(mut commands: Commands, query: Query<Entity, With<MenuCamera>>) {
-    for entity in &query {
-        commands.entity(entity).despawn();
-    }
 }
 
 fn spawn_camera(mut commands: Commands) {
@@ -213,24 +222,88 @@ fn spawn_ball(
 }
 
 
-fn ball_hit(
+
+fn ball_hit_and_score(
     mut collision_events: EventReader<CollisionEvent>,
     paddles: Query<&Player, With<Paddle>>,
-    balls: Query<&MeshMaterial2d<ColorMaterial>, With<Ball>>,
+    mut balls: Query<(&MeshMaterial2d<ColorMaterial>, &mut Velocity), With<Ball>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut score: ResMut<Score>,
+    mut game_events: EventWriter<GameEvents>,
+    goals: Query<&Player, With<Sensor>>,
 ) {
     for event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = event {
+            // Paddle hit: change color and increase speed
             for (ball_entity, paddle_entity) in [(e1, e2), (e2, e1)] {
                 if let (Ok(player), Ok(material_handle)) =
-                    (paddles.get(*paddle_entity), balls.get(*ball_entity))
+                    (paddles.get(*paddle_entity), balls.get(*ball_entity).map(|(mat, _)| mat))
                 {
                     if let Some(material) = materials.get_mut(material_handle) {
                         material.color = player.get_color();
                     }
+                    if let Ok((_, mut velocity)) = balls.get_mut(*ball_entity) {
+                        let v = velocity.linvel;
+                        let new_v = v * 1.1;
+                        velocity.linvel = new_v;
+                    }
+                }
+            }
+            // Goal hit: update score and check win
+            for (ball_entity, goal_entity) in [(e1, e2), (e2, e1)] {
+                if let (Ok(player), Ok(_)) = (goals.get(*goal_entity), balls.get(*ball_entity)) {
+                    match player {
+                        Player::Player1 => score.player2 += 1,
+                        Player::Player2 => score.player1 += 1,
+                    }
+                    // Win condition
+                    if score.player1 >= WIN_SCORE {
+                        println!("Player 1 wins!");
+                        score.player1 = 0;
+                        score.player2 = 0;
+                    } else if score.player2 >= WIN_SCORE {
+                        println!("Player 2 wins!");
+                        score.player1 = 0;
+                        score.player2 = 0;
+                    }
+                    game_events.write(GameEvents::ResetBall(*player));
                 }
             }
         }
+    }
+}
+
+
+fn spawn_score_text(mut commands: Commands, asset_server: Res<AssetServer>, score: Res<Score>) {
+    commands.spawn((
+        Text::new(format!("{}   |   {}", score.player1, score.player2)),
+        TextFont {
+            font: asset_server.load("FiraSans-Bold.ttf"),
+            font_size: 60.0,
+            ..Default::default()
+        },
+        TextColor(Color::WHITE),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Percent(35.0),
+            ..Default::default()
+        },
+        ScoreText,
+    ));
+}
+
+fn update_score_text(score: Res<Score>, mut query: Query<&mut Text, With<ScoreText>>) {
+    if score.is_changed() {
+        for mut text in &mut query {
+            text.0 = format!("{}   |   {}", score.player1, score.player2);
+        }
+    }
+}
+
+fn cleanup_score_text(mut commands: Commands, query: Query<Entity, With<ScoreText>>) {
+    for entity in &query {
+        commands.entity(entity).despawn();
     }
 }
 
