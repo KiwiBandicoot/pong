@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::Player;
 
 #[derive(Component)]
 pub enum MenuButton {
@@ -9,11 +10,15 @@ pub enum MenuButton {
 #[derive(Component)]
 pub struct MainMenuUI;
 
+#[derive(Resource, Default, Clone, Copy)]
+pub struct Winner(pub Option<Player>);
+
 #[derive(States, PartialEq, Eq, Debug, Hash, Clone, Copy, Default)]
 pub enum MenuState {
     #[default]
     MainMenu,
     InGame,
+    GameOver,
 }
 
 pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
