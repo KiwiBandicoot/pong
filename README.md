@@ -1,3 +1,8 @@
-Made a bare bones Pong game with Bevy
+```yaml
+Name: Pong
+Game Engine: Bevy
+Player 1: WS KEYS
+Player 2: Up/Down Keys
 
-W/S keys for player 1 and up/down Keys for player 2!
+ENJOY!
+```
